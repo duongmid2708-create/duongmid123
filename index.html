@@ -1,50 +1,295 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<title>duongmid123</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>duongmid123</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      color: #222;
+    }
+    .app {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    h1 { margin-top: 0; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 10px;
+      background: #222;
+      color: white;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #eee;
+      color: #222;
+    }
+    textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 16px;
+      margin: 8px 0;
+    }
+    textarea { min-height: 160px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .result {
+      white-space: pre-wrap;
+      background: #f7f7f7;
+      padding: 16px;
+      border-radius: 12px;
+      min-height: 120px;
+      margin-top: 12px;
+      border: 1px solid #ddd;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .note {
+      font-size: 13px;
+      color: #666;
+    }
+  </style>
 </head>
 
 <body>
-<h1>duongmid123 - AI Tool</h1>
+<div class="app">
+  <h1>duongmid123 - AI Language Tool</h1>
+  <p class="note">Dịch tự nhiên・Katakana・Sửa câu tiếng Nhật business</p>
 
-<h2>1. Dịch AI</h2>
-<textarea id="input" rows="4" cols="50"></textarea><br>
-<button onclick="translate()">Dịch</button>
+  <div class="tabs">
+    <button onclick="showTab('translate')">1. Dịch AI</button>
+    <button onclick="showTab('katakana')">2. Katakana</button>
+    <button onclick="showTab('fixjp')">3. Sửa tiếng Nhật</button>
+  </div>
 
-<h2>2. Sửa tiếng Nhật</h2>
-<button onclick="fixJP()">Sửa câu</button>
+  <!-- 1. Translate -->
+  <div id="translate" class="panel active">
+    <h2>1. Dịch AI</h2>
 
-<h2>Kết quả</h2>
-<p id="output"></p>
+    <select id="translateMode">
+      <option value="vi-en">Tiếng Việt → English</option>
+      <option value="en-vi">English → Tiếng Việt</option>
+      <option value="ja-vi">日本語 → Tiếng Việt</option>
+      <option value="vi-ja">Tiếng Việt → 日本語</option>
+    </select>
+
+    <textarea id="translateInput" placeholder="Nhập nội dung cần dịch..."></textarea>
+
+    <div class="row">
+      <button onclick="translateText()">Dịch</button>
+      <button class="secondary" onclick="copyResult('translateResult')">Copy kết quả</button>
+      <button class="secondary" onclick="clearBox('translateInput','translateResult')">Xóa</button>
+    </div>
+
+    <div id="translateResult" class="result">Kết quả sẽ hiển thị ở đây...</div>
+  </div>
+
+  <!-- 2. Katakana -->
+  <div id="katakana" class="panel">
+    <h2>2. Chuyển sang カタカナ</h2>
+    <p class="note">
+      Ví dụ: 株式会社まつなが → カブシキガイシャマツナガ / do dai duong → ド ダイ ズオン
+    </p>
+
+    <textarea id="katakanaInput" placeholder="Nhập English / Romaji / 日本語..."></textarea>
+
+    <div class="row">
+      <button onclick="convertKatakana()">Chuyển sang カタカナ</button>
+      <button class="secondary" onclick="copyResult('katakanaResult')">Copy kết quả</button>
+      <button class="secondary" onclick="clearBox('katakanaInput','katakanaResult')">Xóa</button>
+    </div>
+
+    <div id="katakanaResult" class="result">Kết quả sẽ hiển thị ở đây...</div>
+  </div>
+
+  <!-- 3. Japanese Fix -->
+  <div id="fixjp" class="panel">
+    <h2>3. Sửa câu tiếng Nhật</h2>
+    <p class="note">
+      Dùng cho email công ty, bất động sản, khách hàng, LINE công việc.
+    </p>
+
+    <textarea id="jpInput" placeholder="Nhập câu/email tiếng Nhật cần sửa..."></textarea>
+
+    <div class="row">
+      <button onclick="fixJapanese()">修正する</button>
+      <button class="secondary" onclick="copyResult('jpResult')">Copy kết quả</button>
+      <button class="secondary" onclick="clearBox('jpInput','jpResult')">Xóa</button>
+    </div>
+
+    <div id="jpResult" class="result">修正案がここに表示されます...</div>
+  </div>
+</div>
 
 <script>
-const API_KEY = "AIzaSyD1Ni040sVrWExfE2_zPKIayGvgJTJr8wo";
+  const API_KEY = "AIzaSyD1Ni040sVrWExfE2_zPKIayGvgJTJr8wo";
+  const MODEL = "gemini-2.0-flash";
 
-async function callGemini(prompt) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
-    })
-  });
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "Lỗi";
-}
+  function showTab(id) {
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
 
-async function translate() {
-  const text = document.getElementById("input").value;
-  const result = await callGemini("Translate naturally: " + text);
-  document.getElementById("output").innerText = result;
-}
+  async function callGemini(prompt) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
 
-async function fixJP() {
-  const text = document.getElementById("input").value;
-  const result = await callGemini("Rewrite this Japanese sentence naturally and politely:\n" + text);
-  document.getElementById("output").innerText = result;
-}
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }]
+          }
+        ]
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error(data);
+      return "Lỗi API: " + (data.error?.message || "Không rõ nguyên nhân");
+    }
+
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Không có kết quả.";
+  }
+
+  async function translateText() {
+    const text = document.getElementById("translateInput").value.trim();
+    const mode = document.getElementById("translateMode").value;
+    const box = document.getElementById("translateResult");
+
+    if (!text) {
+      box.innerText = "Bạn chưa nhập nội dung.";
+      return;
+    }
+
+    let direction = "";
+    if (mode === "vi-en") direction = "Vietnamese to natural English";
+    if (mode === "en-vi") direction = "English to natural Vietnamese";
+    if (mode === "ja-vi") direction = "Japanese to natural Vietnamese";
+    if (mode === "vi-ja") direction = "Vietnamese to natural Japanese";
+
+    box.innerText = "Đang dịch...";
+
+    const prompt = `
+You are a professional translator for Vietnamese, English, and Japanese.
+
+Translate the text from ${direction}.
+Rules:
+- Translate naturally, not word-by-word.
+- Keep the meaning accurate.
+- If translating into Japanese, use natural polite Japanese suitable for daily/business communication.
+- Output only the translated text. No explanation.
+
+Text:
+${text}
+`;
+
+    box.innerText = await callGemini(prompt);
+  }
+
+  async function convertKatakana() {
+    const text = document.getElementById("katakanaInput").value.trim();
+    const box = document.getElementById("katakanaResult");
+
+    if (!text) {
+      box.innerText = "Bạn chưa nhập nội dung.";
+      return;
+    }
+
+    box.innerText = "Đang chuyển...";
+
+    const prompt = `
+Convert the following text into Japanese Katakana.
+
+Rules:
+- If the input is Japanese kanji/hiragana, convert the reading into full-width Katakana.
+- If the input is Vietnamese names or romaji, transliterate naturally into Katakana by pronunciation.
+- Preserve spaces only when useful for separating names.
+- Output only Katakana. No explanation.
+
+Examples:
+株式会社まつなが -> カブシキガイシャマツナガ
+do dai duong -> ド ダイ ズオン
+nguyen van an -> グエン ヴァン アン
+
+Text:
+${text}
+`;
+
+    box.innerText = await callGemini(prompt);
+  }
+
+  async function fixJapanese() {
+    const text = document.getElementById("jpInput").value.trim();
+    const box = document.getElementById("jpResult");
+
+    if (!text) {
+      box.innerText = "日本語の文章を入力してください。";
+      return;
+    }
+
+    box.innerText = "修正中...";
+
+    const prompt = `
+You are a native Japanese business writing assistant.
+
+Please rewrite the following Japanese text into natural, polite, professional Japanese.
+
+Rules:
+- Make it suitable for Japanese business email.
+- Fix grammar, wording, keigo, and unnatural expressions.
+- Keep the original meaning.
+- If it is an email, format it with natural line breaks.
+- Output in this format:
+
+修正案①（自然で丁寧）
+
+[rewritten Japanese text]
+
+必要に応じて、より丁寧な表現や別案も1つ追加してください。
+
+Original text:
+${text}
+`;
+
+    box.innerText = await callGemini(prompt);
+  }
+
+  function copyResult(id) {
+    const text = document.getElementById(id).innerText;
+    navigator.clipboard.writeText(text);
+    alert("コピーしました / Đã copy");
+  }
+
+  function clearBox(inputId, resultId) {
+    document.getElementById(inputId).value = "";
+    document.getElementById(resultId).innerText = "Kết quả sẽ hiển thị ở đây...";
+  }
 </script>
-
 </body>
 </html>
